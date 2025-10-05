@@ -29,6 +29,11 @@
             cursor: pointer;
             background-color: #f9fafb;
         }
+        .insight-item {
+            padding: 0.75rem;
+            border-left: 4px solid;
+            border-radius: 0.25rem;
+        }
     </style>
 </head>
 <body class="p-4 sm:p-6 lg:p-8">
@@ -71,28 +76,53 @@
 
         <!-- Seção Principal: Gráficos e Análises -->
         <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
-            <!-- Gráfico de Distribuição de Custos -->
             <div class="card lg:col-span-2">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição de Custos</h2>
-                <div class="relative h-64 md:h-80">
-                     <canvas id="costs-chart"></canvas>
-                </div>
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição de Custos (Total)</h2>
+                <div class="relative h-64 md:h-80"><canvas id="costs-chart"></canvas></div>
             </div>
-            <!-- Lista de Custos por Categoria -->
             <div class="card lg:col-span-1">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Custos por Categoria</h2>
-                <div id="category-costs" class="space-y-3 h-64 md:h-80 overflow-y-auto pr-2">
-                    <!-- Os custos por categoria serão inseridos aqui -->
-                </div>
+                <div id="category-costs" class="space-y-3 h-64 md:h-80 overflow-y-auto pr-2"></div>
             </div>
-            <!-- Gráfico de Distribuição Percentual -->
             <div class="card lg:col-span-2">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição Percentual</h2>
-                <div class="relative h-64 md:h-80">
-                     <canvas id="percentage-chart"></canvas>
-                </div>
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição Percentual (Total)</h2>
+                <div class="relative h-64 md:h-80"><canvas id="percentage-chart"></canvas></div>
             </div>
         </div>
+
+        <!-- Dashboard de Análise de Período -->
+        <div class="card mb-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Análise de Período (Conforme Filtros Abaixo)</h2>
+            <div id="period-analysis-content" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Gráfico de Análise de Período -->
+                <div class="md:col-span-2">
+                     <div class="relative h-80 bg-gray-50 p-4 rounded-lg">
+                        <canvas id="period-analysis-chart"></canvas>
+                    </div>
+                </div>
+                <!-- Insights -->
+                <div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="bg-blue-50 p-4 rounded-lg text-center">
+                            <p class="text-sm text-blue-700">Custo no Período</p>
+                            <p id="period-total-cost" class="text-2xl font-bold text-blue-800">R$ 0,00</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg text-center">
+                             <p class="text-sm text-green-700">Gasto Médio/Dia</p>
+                             <p id="period-avg-daily-cost" class="text-2xl font-bold text-green-800">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <h3 class="font-semibold text-gray-700 mb-2">Insights Rápidos</h3>
+                    <div id="period-insights" class="space-y-3">
+                         <!-- Os insights serão inseridos aqui -->
+                    </div>
+                </div>
+            </div>
+             <div id="period-analysis-placeholder" class="text-center py-16 text-gray-500">
+                <p>Use os filtros na tabela abaixo para analisar um período específico.</p>
+            </div>
+        </div>
+
 
         <!-- Histórico de Lançamentos -->
         <div class="card">
@@ -143,7 +173,7 @@
             ];
 
             let expenses = [...initialData];
-            let costsChart, percentageChart;
+            let costsChart, percentageChart, periodAnalysisChart;
             let sortColumn = 'date';
             let sortDirection = 'asc';
             
@@ -154,14 +184,6 @@
                 "Mão de Obra": 'rgba(199, 199, 199, 0.8)', "Outros": 'rgba(83, 102, 84, 0.8)'
             };
 
-            const totalCostEl = document.getElementById('total-cost');
-            const daysLeftEl = document.getElementById('days-left');
-            const daysExecutedEl = document.getElementById('days-executed');
-            const totalDaysProjectEl = document.getElementById('total-days-project');
-            const expenseListEl = document.getElementById('expense-list');
-            const categoryCostsEl = document.getElementById('category-costs');
-            const noExpensesRow = document.getElementById('no-expenses-row');
-
             const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
             const formatDate = (dateString) => new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 
@@ -170,10 +192,7 @@
                 const uniqueCategories = [...new Set(expenses.map(exp => exp.category))].sort();
                 categoryFilterEl.innerHTML = '<option value="">Todas as Categorias</option>';
                 uniqueCategories.forEach(cat => {
-                    const option = document.createElement('option');
-                    option.value = cat;
-                    option.textContent = cat;
-                    categoryFilterEl.appendChild(option);
+                    const option = document.createElement('option'); option.value = cat; option.textContent = cat; categoryFilterEl.appendChild(option);
                 });
             };
 
@@ -183,79 +202,130 @@
                 const today = new Date();
                 const msPerDay = 1000 * 60 * 60 * 24;
                 const totalDays = Math.round((deadline - startDate) / msPerDay);
-                let executedDays = 0;
-                if (today >= startDate) executedDays = Math.round((today - startDate) / msPerDay) + 1;
+                let executedDays = Math.max(0, today >= startDate ? Math.round((today - startDate) / msPerDay) + 1 : 0);
                 if (executedDays > totalDays) executedDays = totalDays;
-                let remainingDays = 0;
-                if (today < deadline) remainingDays = Math.ceil((deadline - today) / msPerDay);
-                daysExecutedEl.textContent = executedDays >= 0 ? executedDays : '0';
-                daysLeftEl.textContent = remainingDays >= 0 ? remainingDays : '0';
-                totalDaysProjectEl.textContent = `Total: ${totalDays} dias de projeto`;
+                let remainingDays = Math.max(0, today < deadline ? Math.ceil((deadline - today) / msPerDay) : 0);
+                document.getElementById('days-executed').textContent = executedDays;
+                document.getElementById('days-left').textContent = remainingDays;
+                document.getElementById('total-days-project').textContent = `Total: ${totalDays} dias de projeto`;
             };
 
-            const renderCostsChart = (categoryTotals) => {
-                const ctx = document.getElementById('costs-chart').getContext('2d');
+            const renderOverallCharts = () => {
+                const totalCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+                const categoryTotals = expenses.reduce((acc, exp) => {
+                    acc[exp.category] = (acc[exp.category] || 0) + exp.amount; return acc;
+                }, {});
+                document.getElementById('total-cost').textContent = formatCurrency(totalCost);
+                
+                // Gráfico de Custos
+                const costsCtx = document.getElementById('costs-chart').getContext('2d');
                 if (costsChart) costsChart.destroy();
-                costsChart = new Chart(ctx, {
-                    type: 'doughnut', data: { labels: Object.keys(categoryTotals), datasets: [{ data: Object.values(categoryTotals), backgroundColor: Object.keys(categoryTotals).map(label => categoryColors[label] || '#cccccc'), borderColor: '#ffffff', borderWidth: 2 }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { formatter: (value) => formatCurrency(value), color: '#fff', textShadowColor: 'black', textShadowBlur: 4, font: { weight: 'bold', size: 14 } } } }
-                });
-            };
-
-            const renderPercentageChart = (categoryTotals, totalCost) => {
-                const ctx = document.getElementById('percentage-chart').getContext('2d');
+                costsChart = new Chart(costsCtx, { type: 'doughnut', data: { labels: Object.keys(categoryTotals), datasets: [{ data: Object.values(categoryTotals), backgroundColor: Object.keys(categoryTotals).map(label => categoryColors[label] || '#cccccc'), borderColor: '#ffffff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { formatter: (value) => formatCurrency(value), color: '#fff', textShadowColor: 'black', textShadowBlur: 4, font: { weight: 'bold', size: 14 } } } } });
+                
+                // Gráfico Percentual
+                const percCtx = document.getElementById('percentage-chart').getContext('2d');
                 if (percentageChart) percentageChart.destroy();
-                percentageChart = new Chart(ctx, {
-                    type: 'pie', data: { labels: Object.keys(categoryTotals), datasets: [{ data: Object.keys(categoryTotals).map(label => (categoryTotals[label] / totalCost) * 100), backgroundColor: Object.keys(categoryTotals).map(label => categoryColors[label] || '#cccccc'), borderColor: '#ffffff', borderWidth: 2 }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => `${context.label}: ${context.parsed.toFixed(2)}%` } }, datalabels: { formatter: (value) => `${value.toFixed(1)}%`, color: '#fff', textShadowColor: 'black', textShadowBlur: 4, font: { weight: 'bold', size: 14 } } } }
+                percentageChart = new Chart(percCtx, { type: 'pie', data: { labels: Object.keys(categoryTotals), datasets: [{ data: Object.keys(categoryTotals).map(label => (categoryTotals[label] / totalCost) * 100), backgroundColor: Object.keys(categoryTotals).map(label => categoryColors[label] || '#cccccc'), borderColor: '#ffffff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => `${context.label}: ${context.parsed.toFixed(2)}%` } }, datalabels: { formatter: (value) => `${value.toFixed(1)}%`, color: '#fff', textShadowColor: 'black', textShadowBlur: 4, font: { weight: 'bold', size: 14 } } } } });
+
+                // Lista de Custos
+                const categoryCostsEl = document.getElementById('category-costs');
+                categoryCostsEl.innerHTML = '';
+                const sortedCategories = Object.entries(categoryTotals).sort(([,a],[,b]) => b-a);
+                sortedCategories.forEach(([cat, cost]) => {
+                     const div = document.createElement('div');
+                     div.className = 'flex justify-between items-center text-sm p-1 rounded';
+                     const color = categoryColors[cat] || '#cccccc';
+                     div.innerHTML = `<span class="flex items-center"><span class="w-3 h-3 rounded-full mr-2" style="background-color: ${color}"></span><span class="text-gray-700">${cat}</span></span><span class="font-semibold text-gray-800">${formatCurrency(cost)}</span>`;
+                     categoryCostsEl.appendChild(div);
                 });
             };
             
             const updateSortIndicators = () => {
                 document.querySelectorAll('th[data-sort] span').forEach(span => span.textContent = '');
                 const indicatorSpan = document.getElementById(`sort-indicator-${sortColumn}`);
-                if (indicatorSpan) {
-                    indicatorSpan.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼';
+                if (indicatorSpan) indicatorSpan.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼';
+            };
+
+            const updatePeriodAnalysis = (filteredExpenses) => {
+                const contentEl = document.getElementById('period-analysis-content');
+                const placeholderEl = document.getElementById('period-analysis-placeholder');
+
+                if (filteredExpenses.length === 0 || filteredExpenses.length === expenses.length) {
+                    contentEl.classList.add('hidden');
+                    placeholderEl.classList.remove('hidden');
+                    return;
                 }
+                
+                contentEl.classList.remove('hidden');
+                placeholderEl.classList.add('hidden');
+
+                // Cálculos
+                const periodTotal = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+                const uniqueDays = [...new Set(filteredExpenses.map(e => e.date))];
+                const avgDaily = periodTotal / (uniqueDays.length || 1);
+                const highestExpense = filteredExpenses.reduce((max, exp) => exp.amount > max.amount ? exp : max, {amount: 0});
+                const categoryTotals = filteredExpenses.reduce((acc, exp) => { acc[exp.category] = (acc[exp.category] || 0) + exp.amount; return acc; }, {});
+                const topCategory = Object.entries(categoryTotals).sort(([,a],[,b]) => b-a)[0];
+                const recurring = filteredExpenses.reduce((acc, exp) => { acc[exp.description] = (acc[exp.description] || 0) + 1; return acc; }, {});
+                const recurringExpenses = Object.entries(recurring).filter(([, count]) => count > 1);
+
+                // Atualizar DOM
+                document.getElementById('period-total-cost').textContent = formatCurrency(periodTotal);
+                document.getElementById('period-avg-daily-cost').textContent = formatCurrency(avgDaily);
+                
+                const insightsEl = document.getElementById('period-insights');
+                insightsEl.innerHTML = `
+                    <div class="insight-item border-red-500 bg-red-50"><strong>Maior Gasto:</strong> ${formatCurrency(highestExpense.amount)} em "${highestExpense.description}"</div>
+                    ${topCategory ? `<div class="insight-item border-purple-500 bg-purple-50"><strong>Categoria Principal:</strong> ${topCategory[0]} com ${formatCurrency(topCategory[1])}</div>` : ''}
+                    ${recurringExpenses.length > 0 ? `<div class="insight-item border-yellow-500 bg-yellow-50"><strong>Gastos Repetidos:</strong> ${recurringExpenses.map(([desc, count]) => `${desc} (${count}x)`).join(', ')}</div>` : '<div class="insight-item border-gray-400 bg-gray-50">Nenhum gasto repetido identificado no período.</div>'}
+                `;
+                
+                // Gráfico de Período
+                const dailyTotals = filteredExpenses.reduce((acc, exp) => {
+                    const date = formatDate(exp.date);
+                    acc[date] = (acc[date] || 0) + exp.amount;
+                    return acc;
+                }, {});
+                
+                const periodCtx = document.getElementById('period-analysis-chart').getContext('2d');
+                if (periodAnalysisChart) periodAnalysisChart.destroy();
+                periodAnalysisChart = new Chart(periodCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(dailyTotals),
+                        datasets: [{ label: 'Gasto Diário', data: Object.values(dailyTotals), backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } }, scales: { y: { beginAtZero: true } } }
+                });
             };
 
             const updateDashboard = () => {
-                const dateFilter = document.getElementById('filter-date').value.toLowerCase();
-                const descriptionFilter = document.getElementById('filter-description').value.toLowerCase();
-                const categoryFilter = document.getElementById('filter-category').value.toLowerCase();
-                const amountFilter = document.getElementById('filter-amount').value.toLowerCase();
+                const filters = {
+                    date: document.getElementById('filter-date').value.toLowerCase(),
+                    description: document.getElementById('filter-description').value.toLowerCase(),
+                    category: document.getElementById('filter-category').value.toLowerCase(),
+                    amount: document.getElementById('filter-amount').value.toLowerCase()
+                };
 
-                const filteredExpenses = expenses.filter(exp => {
-                    const formattedDate = formatDate(exp.date);
-                    return formattedDate.includes(dateFilter) &&
-                           exp.description.toLowerCase().includes(descriptionFilter) &&
-                           exp.category.toLowerCase().includes(categoryFilter) &&
-                           formatCurrency(exp.amount).toLowerCase().includes(amountFilter);
-                });
+                const filteredExpenses = expenses.filter(exp => 
+                    formatDate(exp.date).includes(filters.date) &&
+                    exp.description.toLowerCase().includes(filters.description) &&
+                    exp.category.toLowerCase().includes(filters.category) &&
+                    formatCurrency(exp.amount).toLowerCase().includes(filters.amount)
+                );
 
                 filteredExpenses.sort((a, b) => {
-                    let valA = a[sortColumn];
-                    let valB = b[sortColumn];
-
-                    if (sortColumn === 'date') {
-                        valA = new Date(valA);
-                        valB = new Date(valB);
-                    }
-                    
+                    let valA = a[sortColumn], valB = b[sortColumn];
+                    if (sortColumn === 'date') { valA = new Date(valA); valB = new Date(valB); }
                     if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
                     if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
                     return 0;
                 });
                 
-                const totalCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-                const categoryTotals = expenses.reduce((acc, exp) => {
-                    acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
-                    return acc;
-                }, {});
-
-                totalCostEl.textContent = formatCurrency(totalCost);
+                // Renderizar Tabela
+                const expenseListEl = document.getElementById('expense-list');
+                const noExpensesRow = document.getElementById('no-expenses-row');
                 expenseListEl.innerHTML = '';
-                
                 if (filteredExpenses.length === 0) {
                     expenseListEl.appendChild(noExpensesRow);
                 } else {
@@ -266,45 +336,27 @@
                     });
                 }
                 
-                categoryCostsEl.innerHTML = '';
-                const sortedCategories = Object.entries(categoryTotals).sort(([,a],[,b]) => b-a);
-                sortedCategories.forEach(([cat, cost]) => {
-                     const div = document.createElement('div');
-                     div.className = 'flex justify-between items-center text-sm p-1 rounded';
-                     const color = categoryColors[cat] || '#cccccc';
-                     div.innerHTML = `<span class="flex items-center"><span class="w-3 h-3 rounded-full mr-2" style="background-color: ${color}"></span><span class="text-gray-700">${cat}</span></span><span class="font-semibold text-gray-800">${formatCurrency(cost)}</span>`;
-                     categoryCostsEl.appendChild(div);
-                });
-                if (Object.keys(categoryTotals).length === 0) {
-                    categoryCostsEl.innerHTML = '<p class="text-center text-gray-500 text-sm">Nenhum custo por categoria.</p>';
-                }
-
-                renderCostsChart(categoryTotals);
-                renderPercentageChart(categoryTotals, totalCost);
                 updateSortIndicators();
+                updatePeriodAnalysis(filteredExpenses);
             };
             
             document.querySelectorAll('th[data-sort]').forEach(header => {
                 header.addEventListener('click', () => {
                     const newSortColumn = header.dataset.sort;
-                    if (sortColumn === newSortColumn) {
-                        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-                    } else {
-                        sortColumn = newSortColumn;
-                        sortDirection = 'asc';
-                    }
+                    sortDirection = (sortColumn === newSortColumn && sortDirection === 'asc') ? 'desc' : 'asc';
+                    sortColumn = newSortColumn;
                     updateDashboard();
                 });
             });
 
-            document.querySelectorAll('#filter-date, #filter-description, #filter-amount').forEach(input => {
-                input.addEventListener('keyup', updateDashboard);
-            });
+            document.querySelectorAll('#filter-date, #filter-description, #filter-amount').forEach(input => input.addEventListener('keyup', updateDashboard));
             document.getElementById('filter-category').addEventListener('change', updateDashboard);
             
+            // Inicialização
             calculateDaysLeft();
             populateCategoryFilter();
-            updateDashboard();
+            renderOverallCharts();
+            updateDashboard(); // Chama para renderizar a tabela inicial e a análise de período
             setInterval(calculateDaysLeft, 60000);
         });
     </script>

@@ -110,7 +110,7 @@
                 </div>
                 <!-- Insights -->
                 <div>
-                    <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                         <div class="bg-blue-50 p-4 rounded-lg text-center">
                             <p class="text-sm text-blue-700">Custo no Período</p>
                             <p id="period-total-cost" class="text-2xl font-bold text-blue-800">R$ 0,00</p>
@@ -146,15 +146,15 @@
                         </tr>
                         <tr>
                             <th class="px-2 py-1">
-                                <div class="flex items-center space-x-1">
+                                <div class="flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-1">
                                     <input type="date" id="filter-date-start" class="w-full text-sm border-gray-200 rounded-md p-1">
-                                    <span class="text-xs text-gray-500">a</span>
+                                    <span class="text-xs text-gray-500 hidden sm:inline">a</span>
                                     <input type="date" id="filter-date-end" class="w-full text-sm border-gray-200 rounded-md p-1">
                                 </div>
                             </th>
-                            <th class="px-2 py-1"><input type="text" id="filter-description" placeholder="Filtrar descrição..." class="w-full text-sm border-gray-200 rounded-md"></th>
+                            <th class="px-2 py-1"></th>
                             <th class="px-2 py-1"><select id="filter-category" class="w-full text-sm border-gray-200 rounded-md"></select></th>
-                            <th class="px-2 py-1"><input type="text" id="filter-amount" placeholder="Filtrar valor..." class="w-full text-sm border-gray-200 rounded-md"></th>
+                            <th class="px-2 py-1"></th>
                         </tr>
                     </thead>
                     <tbody id="expense-list" class="bg-white divide-y divide-gray-200">
@@ -303,34 +303,46 @@
                 
                 const periodCtx = document.getElementById('period-analysis-chart').getContext('2d');
                 if (periodAnalysisChart) periodAnalysisChart.destroy();
+                const sortedLabels = Object.keys(dailyTotals).sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
+                const sortedData = sortedLabels.map(label => dailyTotals[label]);
+
                 periodAnalysisChart = new Chart(periodCtx, {
                     type: 'bar',
                     data: {
-                        labels: Object.keys(dailyTotals).sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-'))),
-                        datasets: [{ label: 'Gasto Diário', data: Object.values(dailyTotals), backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }]
+                        labels: sortedLabels,
+                        datasets: [{ label: 'Gasto Diário', data: sortedData, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }]
                     },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } }, scales: { y: { beginAtZero: true } } }
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { 
+                            legend: { display: false }, 
+                            datalabels: { 
+                                anchor: 'end',
+                                align: 'end',
+                                formatter: (value) => formatCurrency(value),
+                                color: '#4b5563',
+                                font: {
+                                    size: 10
+                                }
+                             } 
+                        }, 
+                        scales: { y: { beginAtZero: true, ticks: { callback: (value) => formatCurrency(value) } } } 
+                    }
                 });
             };
 
             const updateDashboard = () => {
                 const startDate = document.getElementById('filter-date-start').value;
                 const endDate = document.getElementById('filter-date-end').value;
-
-                const filters = {
-                    description: document.getElementById('filter-description').value.toLowerCase(),
-                    category: document.getElementById('filter-category').value.toLowerCase(),
-                    amount: document.getElementById('filter-amount').value.toLowerCase()
-                };
+                const categoryFilter = document.getElementById('filter-category').value.toLowerCase();
 
                 const filteredExpenses = expenses.filter(exp => {
                     const expDate = new Date(exp.date + 'T00:00:00');
                     if (startDate && new Date(startDate + 'T00:00:00') > expDate) return false;
                     if (endDate && new Date(endDate + 'T00:00:00') < expDate) return false;
 
-                    return exp.description.toLowerCase().includes(filters.description) &&
-                           exp.category.toLowerCase().includes(filters.category) &&
-                           formatCurrency(exp.amount).toLowerCase().includes(filters.amount);
+                    return exp.category.toLowerCase().includes(categoryFilter);
                 });
 
                 filteredExpenses.sort((a, b) => {
@@ -370,14 +382,13 @@
 
             document.getElementById('filter-date-start').addEventListener('change', updateDashboard);
             document.getElementById('filter-date-end').addEventListener('change', updateDashboard);
-            document.querySelectorAll('#filter-description, #filter-amount').forEach(input => input.addEventListener('keyup', updateDashboard));
             document.getElementById('filter-category').addEventListener('change', updateDashboard);
             
             // Inicialização
             calculateDaysLeft();
             populateCategoryFilter();
             renderOverallCharts();
-            updateDashboard(); // Chama para renderizar a tabela inicial e a análise de período
+            updateDashboard();
             setInterval(calculateDaysLeft, 60000);
         });
     </script>

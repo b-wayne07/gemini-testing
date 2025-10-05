@@ -34,6 +34,14 @@
             border-left: 4px solid;
             border-radius: 0.25rem;
         }
+        /* Style for date inputs */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            cursor: pointer;
+            opacity: 0.6;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
     </style>
 </head>
 <body class="p-4 sm:p-6 lg:p-8">
@@ -92,7 +100,7 @@
 
         <!-- Dashboard de Análise de Período -->
         <div class="card mb-6">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">Análise de Período (Conforme Filtros Abaixo)</h2>
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Análise de Período</h2>
             <div id="period-analysis-content" class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- Gráfico de Análise de Período -->
                 <div class="md:col-span-2">
@@ -118,8 +126,8 @@
                     </div>
                 </div>
             </div>
-             <div id="period-analysis-placeholder" class="text-center py-16 text-gray-500">
-                <p>Use os filtros na tabela abaixo para analisar um período específico.</p>
+             <div id="period-analysis-placeholder" class="text-center py-16 text-gray-500 hidden">
+                <p>Nenhum dado encontrado para os filtros aplicados.</p>
             </div>
         </div>
 
@@ -137,7 +145,13 @@
                             <th data-sort="amount" class="sortable px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor <span id="sort-indicator-amount"></span></th>
                         </tr>
                         <tr>
-                            <th class="px-2 py-1"><input type="text" id="filter-date" placeholder="Filtrar data..." class="w-full text-sm border-gray-200 rounded-md"></th>
+                            <th class="px-2 py-1">
+                                <div class="flex items-center space-x-1">
+                                    <input type="date" id="filter-date-start" class="w-full text-sm border-gray-200 rounded-md p-1">
+                                    <span class="text-xs text-gray-500">a</span>
+                                    <input type="date" id="filter-date-end" class="w-full text-sm border-gray-200 rounded-md p-1">
+                                </div>
+                            </th>
                             <th class="px-2 py-1"><input type="text" id="filter-description" placeholder="Filtrar descrição..." class="w-full text-sm border-gray-200 rounded-md"></th>
                             <th class="px-2 py-1"><select id="filter-category" class="w-full text-sm border-gray-200 rounded-md"></select></th>
                             <th class="px-2 py-1"><input type="text" id="filter-amount" placeholder="Filtrar valor..." class="w-full text-sm border-gray-200 rounded-md"></th>
@@ -250,7 +264,7 @@
                 const contentEl = document.getElementById('period-analysis-content');
                 const placeholderEl = document.getElementById('period-analysis-placeholder');
 
-                if (filteredExpenses.length === 0 || filteredExpenses.length === expenses.length) {
+                if (filteredExpenses.length === 0) {
                     contentEl.classList.add('hidden');
                     placeholderEl.classList.remove('hidden');
                     return;
@@ -292,7 +306,7 @@
                 periodAnalysisChart = new Chart(periodCtx, {
                     type: 'bar',
                     data: {
-                        labels: Object.keys(dailyTotals),
+                        labels: Object.keys(dailyTotals).sort((a,b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-'))),
                         datasets: [{ label: 'Gasto Diário', data: Object.values(dailyTotals), backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }]
                     },
                     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { display: false } }, scales: { y: { beginAtZero: true } } }
@@ -300,19 +314,24 @@
             };
 
             const updateDashboard = () => {
+                const startDate = document.getElementById('filter-date-start').value;
+                const endDate = document.getElementById('filter-date-end').value;
+
                 const filters = {
-                    date: document.getElementById('filter-date').value.toLowerCase(),
                     description: document.getElementById('filter-description').value.toLowerCase(),
                     category: document.getElementById('filter-category').value.toLowerCase(),
                     amount: document.getElementById('filter-amount').value.toLowerCase()
                 };
 
-                const filteredExpenses = expenses.filter(exp => 
-                    formatDate(exp.date).includes(filters.date) &&
-                    exp.description.toLowerCase().includes(filters.description) &&
-                    exp.category.toLowerCase().includes(filters.category) &&
-                    formatCurrency(exp.amount).toLowerCase().includes(filters.amount)
-                );
+                const filteredExpenses = expenses.filter(exp => {
+                    const expDate = new Date(exp.date + 'T00:00:00');
+                    if (startDate && new Date(startDate + 'T00:00:00') > expDate) return false;
+                    if (endDate && new Date(endDate + 'T00:00:00') < expDate) return false;
+
+                    return exp.description.toLowerCase().includes(filters.description) &&
+                           exp.category.toLowerCase().includes(filters.category) &&
+                           formatCurrency(exp.amount).toLowerCase().includes(filters.amount);
+                });
 
                 filteredExpenses.sort((a, b) => {
                     let valA = a[sortColumn], valB = b[sortColumn];
@@ -349,7 +368,9 @@
                 });
             });
 
-            document.querySelectorAll('#filter-date, #filter-description, #filter-amount').forEach(input => input.addEventListener('keyup', updateDashboard));
+            document.getElementById('filter-date-start').addEventListener('change', updateDashboard);
+            document.getElementById('filter-date-end').addEventListener('change', updateDashboard);
+            document.querySelectorAll('#filter-description, #filter-amount').forEach(input => input.addEventListener('keyup', updateDashboard));
             document.getElementById('filter-category').addEventListener('change', updateDashboard);
             
             // Inicialização

@@ -70,26 +70,26 @@
         </div>
 
         <!-- Seção Principal: Gráficos e Análises -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
             <!-- Gráfico de Distribuição de Custos -->
-            <div class="card">
+            <div class="card lg:col-span-2">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição de Custos</h2>
                 <div class="relative h-64 md:h-80">
                      <canvas id="costs-chart"></canvas>
                 </div>
             </div>
-            <!-- Gráfico de Distribuição Percentual -->
-            <div class="card">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição Percentual</h2>
-                <div class="relative h-64 md:h-80">
-                     <canvas id="percentage-chart"></canvas>
-                </div>
-            </div>
             <!-- Lista de Custos por Categoria -->
-            <div class="card">
+            <div class="card lg:col-span-1">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Custos por Categoria</h2>
                 <div id="category-costs" class="space-y-3 h-64 md:h-80 overflow-y-auto pr-2">
                     <!-- Os custos por categoria serão inseridos aqui -->
+                </div>
+            </div>
+            <!-- Gráfico de Distribuição Percentual -->
+            <div class="card lg:col-span-2">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição Percentual</h2>
+                <div class="relative h-64 md:h-80">
+                     <canvas id="percentage-chart"></canvas>
                 </div>
             </div>
         </div>
@@ -109,7 +109,7 @@
                         <tr>
                             <th class="px-2 py-1"><input type="text" id="filter-date" placeholder="Filtrar data..." class="w-full text-sm border-gray-200 rounded-md"></th>
                             <th class="px-2 py-1"><input type="text" id="filter-description" placeholder="Filtrar descrição..." class="w-full text-sm border-gray-200 rounded-md"></th>
-                            <th class="px-2 py-1"><input type="text" id="filter-category" placeholder="Filtrar categoria..." class="w-full text-sm border-gray-200 rounded-md"></th>
+                            <th class="px-2 py-1"><select id="filter-category" class="w-full text-sm border-gray-200 rounded-md"></select></th>
                             <th class="px-2 py-1"><input type="text" id="filter-amount" placeholder="Filtrar valor..." class="w-full text-sm border-gray-200 rounded-md"></th>
                         </tr>
                     </thead>
@@ -164,6 +164,18 @@
 
             const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
             const formatDate = (dateString) => new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+
+            const populateCategoryFilter = () => {
+                const categoryFilterEl = document.getElementById('filter-category');
+                const uniqueCategories = [...new Set(expenses.map(exp => exp.category))].sort();
+                categoryFilterEl.innerHTML = '<option value="">Todas as Categorias</option>';
+                uniqueCategories.forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    categoryFilterEl.appendChild(option);
+                });
+            };
 
             const calculateDaysLeft = () => {
                 const startDate = new Date('2025-10-01T00:00:00');
@@ -285,11 +297,13 @@
                 });
             });
 
-            document.querySelectorAll('#filter-date, #filter-description, #filter-category, #filter-amount').forEach(input => {
+            document.querySelectorAll('#filter-date, #filter-description, #filter-amount').forEach(input => {
                 input.addEventListener('keyup', updateDashboard);
             });
+            document.getElementById('filter-category').addEventListener('change', updateDashboard);
             
             calculateDaysLeft();
+            populateCategoryFilter();
             updateDashboard();
             setInterval(calculateDaysLeft, 60000);
         });

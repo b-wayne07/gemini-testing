@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <style>
@@ -34,13 +34,55 @@
             border-left: 4px solid;
             border-radius: 0.25rem;
         }
-        /* Style for date inputs */
         input[type="date"]::-webkit-calendar-picker-indicator {
             cursor: pointer;
             opacity: 0.6;
         }
         input[type="date"]::-webkit-calendar-picker-indicator:hover {
             opacity: 1;
+        }
+        .notebook {
+            background-color: #fefce8;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            padding: 2rem 1.5rem 2rem 3.5rem;
+            position: relative;
+        }
+        .notebook::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 15px;
+            bottom: 20px;
+            width: 10px;
+            background-image: radial-gradient(circle, #a8a29e 2px, transparent 2px);
+            background-size: 10px 20px;
+            background-position: 0 5px;
+        }
+        .notebook-title {
+            font-family: 'Inter', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .notebook-content {
+            font-family: 'Kalam', cursive;
+            line-height: 2.5rem;
+            background-image: repeating-linear-gradient(to bottom, transparent, transparent 39px, #e5e7eb 40px);
+            background-size: 100% 40px;
+        }
+        .report-entry {
+            margin-bottom: 2.5rem;
+        }
+        .report-date {
+            font-weight: 700;
+            color: #1d4ed8;
+        }
+        .report-text {
+            color: #1f2937;
+            padding-left: 0.5rem;
         }
     </style>
 </head>
@@ -95,6 +137,16 @@
             <div class="card lg:col-span-2">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição Percentual (Total)</h2>
                 <div class="relative h-64 md:h-80"><canvas id="percentage-chart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Diário de Obra -->
+        <div class="mb-6">
+            <div class="notebook">
+                <h2 class="notebook-title">Diário de Obra</h2>
+                <div id="daily-report-entries" class="notebook-content">
+                    <!-- Entradas do diário serão inseridas aqui -->
+                </div>
             </div>
         </div>
 
@@ -186,6 +238,13 @@
               { "date": "2025-10-04", "amount": 227.48, "category": "Materiais", "description": "Cimento, espaçadores, etc" }
             ];
 
+            const dailyReports = [
+                { "date": "2025-10-01", "report": "Remoção de pisos da cozinha" },
+                { "date": "2025-10-02", "report": "Remoção parcial de parede sul da cozinha" },
+                { "date": "2025-10-03", "report": "Pesquisa e orçamento de materiais" },
+                { "date": "2025-10-04", "report": "Compra online de materiais" }
+            ];
+
             let expenses = [...initialData];
             let costsChart, percentageChart, periodAnalysisChart;
             let sortColumn = 'date';
@@ -231,17 +290,14 @@
                 }, {});
                 document.getElementById('total-cost').textContent = formatCurrency(totalCost);
                 
-                // Gráfico de Custos
                 const costsCtx = document.getElementById('costs-chart').getContext('2d');
                 if (costsChart) costsChart.destroy();
                 costsChart = new Chart(costsCtx, { type: 'doughnut', data: { labels: Object.keys(categoryTotals), datasets: [{ data: Object.values(categoryTotals), backgroundColor: Object.keys(categoryTotals).map(label => categoryColors[label] || '#cccccc'), borderColor: '#ffffff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { formatter: (value) => formatCurrency(value), color: '#fff', textShadowColor: 'black', textShadowBlur: 4, font: { weight: 'bold', size: 14 } } } } });
                 
-                // Gráfico Percentual
                 const percCtx = document.getElementById('percentage-chart').getContext('2d');
                 if (percentageChart) percentageChart.destroy();
                 percentageChart = new Chart(percCtx, { type: 'pie', data: { labels: Object.keys(categoryTotals), datasets: [{ data: Object.keys(categoryTotals).map(label => (categoryTotals[label] / totalCost) * 100), backgroundColor: Object.keys(categoryTotals).map(label => categoryColors[label] || '#cccccc'), borderColor: '#ffffff', borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => `${context.label}: ${context.parsed.toFixed(2)}%` } }, datalabels: { formatter: (value) => `${value.toFixed(1)}%`, color: '#fff', textShadowColor: 'black', textShadowBlur: 4, font: { weight: 'bold', size: 14 } } } } });
 
-                // Lista de Custos
                 const categoryCostsEl = document.getElementById('category-costs');
                 categoryCostsEl.innerHTML = '';
                 const sortedCategories = Object.entries(categoryTotals).sort(([,a],[,b]) => b-a);
@@ -254,6 +310,22 @@
                 });
             };
             
+            const renderDailyReports = () => {
+                const entriesContainer = document.getElementById('daily-report-entries');
+                entriesContainer.innerHTML = ''; 
+                if (dailyReports.length === 0) {
+                    entriesContainer.innerHTML = '<p class="text-center text-gray-500" style="font-family: \'Inter\', sans-serif;">Nenhum relatório diário encontrado.</p>';
+                    return;
+                }
+                dailyReports.sort((a, b) => new Date(a.date) - new Date(b.date));
+                dailyReports.forEach(report => {
+                    const entryDiv = document.createElement('div');
+                    entryDiv.className = 'report-entry';
+                    entryDiv.innerHTML = `<p><span class="report-date">${formatDate(report.date)}:</span><span class="report-text">${report.report}</span></p>`;
+                    entriesContainer.appendChild(entryDiv);
+                });
+            };
+
             const updateSortIndicators = () => {
                 document.querySelectorAll('th[data-sort] span').forEach(span => span.textContent = '');
                 const indicatorSpan = document.getElementById(`sort-indicator-${sortColumn}`);
@@ -273,7 +345,6 @@
                 contentEl.classList.remove('hidden');
                 placeholderEl.classList.add('hidden');
 
-                // Cálculos
                 const periodTotal = filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0);
                 const uniqueDays = [...new Set(filteredExpenses.map(e => e.date))];
                 const avgDaily = periodTotal / (uniqueDays.length || 1);
@@ -283,7 +354,6 @@
                 const recurring = filteredExpenses.reduce((acc, exp) => { acc[exp.description] = (acc[exp.description] || 0) + 1; return acc; }, {});
                 const recurringExpenses = Object.entries(recurring).filter(([, count]) => count > 1);
 
-                // Atualizar DOM
                 document.getElementById('period-total-cost').textContent = formatCurrency(periodTotal);
                 document.getElementById('period-avg-daily-cost').textContent = formatCurrency(avgDaily);
                 
@@ -294,7 +364,6 @@
                     ${recurringExpenses.length > 0 ? `<div class="insight-item border-yellow-500 bg-yellow-50"><strong>Gastos Repetidos:</strong> ${recurringExpenses.map(([desc, count]) => `${desc} (${count}x)`).join(', ')}</div>` : '<div class="insight-item border-gray-400 bg-gray-50">Nenhum gasto repetido identificado no período.</div>'}
                 `;
                 
-                // Gráfico de Período
                 const dailyTotals = filteredExpenses.reduce((acc, exp) => {
                     const date = formatDate(exp.date);
                     acc[date] = (acc[date] || 0) + exp.amount;
@@ -353,7 +422,6 @@
                     return 0;
                 });
                 
-                // Renderizar Tabela
                 const expenseListEl = document.getElementById('expense-list');
                 const noExpensesRow = document.getElementById('no-expenses-row');
                 expenseListEl.innerHTML = '';
@@ -388,6 +456,7 @@
             calculateDaysLeft();
             populateCategoryFilter();
             renderOverallCharts();
+            renderDailyReports();
             updateDashboard();
             setInterval(calculateDaysLeft, 60000);
         });

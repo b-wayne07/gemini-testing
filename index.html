@@ -25,13 +25,17 @@
         .card:hover {
             transform: translateY(-5px);
         }
+        .sortable:hover {
+            cursor: pointer;
+            background-color: #f9fafb;
+        }
     </style>
 </head>
 <body class="p-4 sm:p-6 lg:p-8">
     <div class="max-w-7xl mx-auto">
         <!-- Cabeçalho -->
         <header class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">Dashboard de Acompanhamento de Obra</h1>
+            <h1 class="text-3xl font-bold text-gray-800">Acompanhamento de obra</h1>
             <p class="text-gray-500 mt-1">Projeto de Reforma e Ampliação da Casa</p>
         </header>
 
@@ -66,25 +70,25 @@
         </div>
 
         <!-- Seção Principal: Gráficos e Análises -->
-        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             <!-- Gráfico de Distribuição de Custos -->
-            <div class="card lg:col-span-2">
+            <div class="card">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição de Custos</h2>
-                <div class="relative h-64 md:h-96">
+                <div class="relative h-64 md:h-80">
                      <canvas id="costs-chart"></canvas>
                 </div>
             </div>
             <!-- Gráfico de Distribuição Percentual -->
-            <div class="card lg:col-span-2">
+            <div class="card">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Distribuição Percentual</h2>
-                <div class="relative h-64 md:h-96">
+                <div class="relative h-64 md:h-80">
                      <canvas id="percentage-chart"></canvas>
                 </div>
             </div>
             <!-- Lista de Custos por Categoria -->
-            <div class="card lg:col-span-1">
+            <div class="card">
                 <h2 class="text-xl font-bold text-gray-800 mb-4">Custos por Categoria</h2>
-                <div id="category-costs" class="space-y-3 h-64 md:h-96 overflow-y-auto pr-2">
+                <div id="category-costs" class="space-y-3 h-64 md:h-80 overflow-y-auto pr-2">
                     <!-- Os custos por categoria serão inseridos aqui -->
                 </div>
             </div>
@@ -97,15 +101,21 @@
                  <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria</th>
-                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                            <th data-sort="date" class="sortable px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data <span id="sort-indicator-date"></span></th>
+                            <th data-sort="description" class="sortable px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descrição <span id="sort-indicator-description"></span></th>
+                            <th data-sort="category" class="sortable px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoria <span id="sort-indicator-category"></span></th>
+                            <th data-sort="amount" class="sortable px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Valor <span id="sort-indicator-amount"></span></th>
+                        </tr>
+                        <tr>
+                            <th class="px-2 py-1"><input type="text" id="filter-date" placeholder="Filtrar data..." class="w-full text-sm border-gray-200 rounded-md"></th>
+                            <th class="px-2 py-1"><input type="text" id="filter-description" placeholder="Filtrar descrição..." class="w-full text-sm border-gray-200 rounded-md"></th>
+                            <th class="px-2 py-1"><input type="text" id="filter-category" placeholder="Filtrar categoria..." class="w-full text-sm border-gray-200 rounded-md"></th>
+                            <th class="px-2 py-1"><input type="text" id="filter-amount" placeholder="Filtrar valor..." class="w-full text-sm border-gray-200 rounded-md"></th>
                         </tr>
                     </thead>
                     <tbody id="expense-list" class="bg-white divide-y divide-gray-200">
                         <tr id="no-expenses-row">
-                            <td colspan="4" class="px-6 py-4 text-center text-gray-500">Nenhuma despesa lançada ainda.</td>
+                            <td colspan="4" class="px-6 py-4 text-center text-gray-500">Nenhuma despesa encontrada.</td>
                         </tr>
                     </tbody>
                 </table>
@@ -115,11 +125,9 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Registrar o plugin de datalabels globalmente
             Chart.register(ChartDataLabels);
 
-            // Dados iniciais (substituir por carregamento de API/DB no futuro)
-             const initialData = [
+            const initialData = [
               { "date": "2025-10-01", "amount": 43.00, "category": "Alimentação", "description": "Almoço com Renato" },
               { "date": "2025-10-01", "amount": 13.00, "category": "Equipamento", "description": "Dois pares de luvas" },
               { "date": "2025-10-01", "amount": 20.00, "category": "Equipamento", "description": "Dez sacos de entulho" },
@@ -134,9 +142,10 @@
               { "date": "2025-10-04", "amount": 227.48, "category": "Materiais", "description": "Cimento, espaçadores, etc" }
             ];
 
-            // Estado da aplicação
             let expenses = [...initialData];
             let costsChart, percentageChart;
+            let sortColumn = 'date';
+            let sortDirection = 'asc';
             
             const categoryColors = {
                 "Equipamento": 'rgba(255, 99, 132, 0.8)', "Alimentação": 'rgba(54, 162, 235, 0.8)',
@@ -145,7 +154,6 @@
                 "Mão de Obra": 'rgba(199, 199, 199, 0.8)', "Outros": 'rgba(83, 102, 84, 0.8)'
             };
 
-            // Elementos do DOM
             const totalCostEl = document.getElementById('total-cost');
             const daysLeftEl = document.getElementById('days-left');
             const daysExecutedEl = document.getElementById('days-executed');
@@ -155,6 +163,7 @@
             const noExpensesRow = document.getElementById('no-expenses-row');
 
             const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+            const formatDate = (dateString) => new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
 
             const calculateDaysLeft = () => {
                 const startDate = new Date('2025-10-01T00:00:00');
@@ -174,73 +183,77 @@
 
             const renderCostsChart = (categoryTotals) => {
                 const ctx = document.getElementById('costs-chart').getContext('2d');
-                const labels = Object.keys(categoryTotals);
-                const data = Object.values(categoryTotals);
-                const backgroundColors = labels.map(label => categoryColors[label] || '#cccccc');
                 if (costsChart) costsChart.destroy();
                 costsChart = new Chart(ctx, {
-                    type: 'doughnut', data: { labels, datasets: [{ data, backgroundColor: backgroundColors, borderColor: '#ffffff', borderWidth: 2 }] },
-                    options: { 
-                        responsive: true, maintainAspectRatio: false, 
-                        plugins: { 
-                            legend: { display: false },
-                            datalabels: {
-                                formatter: (value) => formatCurrency(value),
-                                color: '#fff',
-                                textShadowColor: 'black',
-                                textShadowBlur: 4,
-                                font: { weight: 'bold', size: 14 }
-                            }
-                        } 
-                    }
+                    type: 'doughnut', data: { labels: Object.keys(categoryTotals), datasets: [{ data: Object.values(categoryTotals), backgroundColor: Object.keys(categoryTotals).map(label => categoryColors[label] || '#cccccc'), borderColor: '#ffffff', borderWidth: 2 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { formatter: (value) => formatCurrency(value), color: '#fff', textShadowColor: 'black', textShadowBlur: 4, font: { weight: 'bold', size: 14 } } } }
                 });
             };
 
             const renderPercentageChart = (categoryTotals, totalCost) => {
                 const ctx = document.getElementById('percentage-chart').getContext('2d');
-                const labels = Object.keys(categoryTotals);
-                const data = labels.map(label => (categoryTotals[label] / totalCost) * 100);
-                const backgroundColors = labels.map(label => categoryColors[label] || '#cccccc');
                 if (percentageChart) percentageChart.destroy();
                 percentageChart = new Chart(ctx, {
-                    type: 'pie', data: { labels, datasets: [{ data, backgroundColor: backgroundColors, borderColor: '#ffffff', borderWidth: 2 }] },
-                    options: { 
-                        responsive: true, maintainAspectRatio: false, 
-                        plugins: { 
-                            legend: { display: false },
-                            tooltip: { callbacks: { label: (context) => `${context.label}: ${context.parsed.toFixed(2)}%` } },
-                            datalabels: {
-                                formatter: (value) => `${value.toFixed(1)}%`,
-                                color: '#fff',
-                                textShadowColor: 'black',
-                                textShadowBlur: 4,
-                                font: { weight: 'bold', size: 14 }
-                            }
-                        } 
-                    }
+                    type: 'pie', data: { labels: Object.keys(categoryTotals), datasets: [{ data: Object.keys(categoryTotals).map(label => (categoryTotals[label] / totalCost) * 100), backgroundColor: Object.keys(categoryTotals).map(label => categoryColors[label] || '#cccccc'), borderColor: '#ffffff', borderWidth: 2 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (context) => `${context.label}: ${context.parsed.toFixed(2)}%` } }, datalabels: { formatter: (value) => `${value.toFixed(1)}%`, color: '#fff', textShadowColor: 'black', textShadowBlur: 4, font: { weight: 'bold', size: 14 } } } }
                 });
+            };
+            
+            const updateSortIndicators = () => {
+                document.querySelectorAll('th[data-sort] span').forEach(span => span.textContent = '');
+                const indicatorSpan = document.getElementById(`sort-indicator-${sortColumn}`);
+                if (indicatorSpan) {
+                    indicatorSpan.textContent = sortDirection === 'asc' ? ' ▲' : ' ▼';
+                }
             };
 
             const updateDashboard = () => {
+                const dateFilter = document.getElementById('filter-date').value.toLowerCase();
+                const descriptionFilter = document.getElementById('filter-description').value.toLowerCase();
+                const categoryFilter = document.getElementById('filter-category').value.toLowerCase();
+                const amountFilter = document.getElementById('filter-amount').value.toLowerCase();
+
+                const filteredExpenses = expenses.filter(exp => {
+                    const formattedDate = formatDate(exp.date);
+                    return formattedDate.includes(dateFilter) &&
+                           exp.description.toLowerCase().includes(descriptionFilter) &&
+                           exp.category.toLowerCase().includes(categoryFilter) &&
+                           formatCurrency(exp.amount).toLowerCase().includes(amountFilter);
+                });
+
+                filteredExpenses.sort((a, b) => {
+                    let valA = a[sortColumn];
+                    let valB = b[sortColumn];
+
+                    if (sortColumn === 'date') {
+                        valA = new Date(valA);
+                        valB = new Date(valB);
+                    }
+                    
+                    if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
+                    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
+                    return 0;
+                });
+                
                 const totalCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
                 const categoryTotals = expenses.reduce((acc, exp) => {
-                    if (!acc[exp.category]) acc[exp.category] = 0;
-                    acc[exp.category] += exp.amount;
+                    acc[exp.category] = (acc[exp.category] || 0) + exp.amount;
                     return acc;
                 }, {});
+
                 totalCostEl.textContent = formatCurrency(totalCost);
                 expenseListEl.innerHTML = '';
-                if (expenses.length === 0) {
+                
+                if (filteredExpenses.length === 0) {
                     expenseListEl.appendChild(noExpensesRow);
                 } else {
-                    const sortedExpenses = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
-                    sortedExpenses.forEach(exp => {
+                    filteredExpenses.forEach(exp => {
                         const row = document.createElement('tr');
-                        const formattedDate = new Date(exp.date + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                        row.innerHTML = `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedDate}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${exp.description}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${exp.category}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">${formatCurrency(exp.amount)}</td>`;
+                        row.innerHTML = `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(exp.date)}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${exp.description}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${exp.category}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">${formatCurrency(exp.amount)}</td>`;
                         expenseListEl.appendChild(row);
                     });
                 }
+                
                 categoryCostsEl.innerHTML = '';
                 const sortedCategories = Object.entries(categoryTotals).sort(([,a],[,b]) => b-a);
                 sortedCategories.forEach(([cat, cost]) => {
@@ -253,9 +266,28 @@
                 if (Object.keys(categoryTotals).length === 0) {
                     categoryCostsEl.innerHTML = '<p class="text-center text-gray-500 text-sm">Nenhum custo por categoria.</p>';
                 }
+
                 renderCostsChart(categoryTotals);
                 renderPercentageChart(categoryTotals, totalCost);
+                updateSortIndicators();
             };
+            
+            document.querySelectorAll('th[data-sort]').forEach(header => {
+                header.addEventListener('click', () => {
+                    const newSortColumn = header.dataset.sort;
+                    if (sortColumn === newSortColumn) {
+                        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortColumn = newSortColumn;
+                        sortDirection = 'asc';
+                    }
+                    updateDashboard();
+                });
+            });
+
+            document.querySelectorAll('#filter-date, #filter-description, #filter-category, #filter-amount').forEach(input => {
+                input.addEventListener('keyup', updateDashboard);
+            });
             
             calculateDaysLeft();
             updateDashboard();

@@ -72,6 +72,7 @@
             line-height: 2.5rem;
             background-image: repeating-linear-gradient(to bottom, transparent, transparent 39px, #e5e7eb 40px);
             background-size: 100% 40px;
+            min-height: 200px; /* Garante altura mínima */
         }
         .report-entry {
             margin-bottom: 2.5rem;
@@ -83,6 +84,24 @@
         .report-text {
             color: #1f2937;
             padding-left: 0.5rem;
+        }
+        .pagination-btn {
+            background-color: #e5e7eb;
+            border: none;
+            border-radius: 0.375rem;
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .pagination-btn:hover:not(:disabled) {
+            background-color: #d1d5db;
+        }
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
     </style>
 </head>
@@ -144,8 +163,11 @@
         <div class="mb-6">
             <div class="notebook">
                 <h2 class="notebook-title">Diário de Obra</h2>
-                <div id="daily-report-entries" class="notebook-content">
-                    <!-- Entradas do diário serão inseridas aqui -->
+                <div id="daily-report-entries" class="notebook-content"></div>
+                <div id="daily-reports-pagination" class="flex justify-between items-center mt-4">
+                    <button id="reports-prev-btn" class="pagination-btn">Anterior</button>
+                    <span id="reports-page-info" class="text-sm text-gray-600"></span>
+                    <button id="reports-next-btn" class="pagination-btn">Próxima</button>
                 </div>
             </div>
         </div>
@@ -173,16 +195,13 @@
                         </div>
                     </div>
                     <h3 class="font-semibold text-gray-700 mb-2">Insights Rápidos</h3>
-                    <div id="period-insights" class="space-y-3">
-                         <!-- Os insights serão inseridos aqui -->
-                    </div>
+                    <div id="period-insights" class="space-y-3"></div>
                 </div>
             </div>
              <div id="period-analysis-placeholder" class="text-center py-16 text-gray-500 hidden">
                 <p>Nenhum dado encontrado para os filtros aplicados.</p>
             </div>
         </div>
-
 
         <!-- Histórico de Lançamentos -->
         <div class="card">
@@ -209,13 +228,14 @@
                             <th class="px-2 py-1"></th>
                         </tr>
                     </thead>
-                    <tbody id="expense-list" class="bg-white divide-y divide-gray-200">
-                        <tr id="no-expenses-row">
-                            <td colspan="4" class="px-6 py-4 text-center text-gray-500">Nenhuma despesa encontrada.</td>
-                        </tr>
-                    </tbody>
+                    <tbody id="expense-list" class="bg-white divide-y divide-gray-200"></tbody>
                 </table>
              </div>
+             <div id="expenses-pagination" class="flex justify-between items-center mt-4">
+                <button id="expenses-prev-btn" class="pagination-btn">Anterior</button>
+                <span id="expenses-page-info" class="text-sm text-gray-600"></span>
+                <button id="expenses-next-btn" class="pagination-btn">Próxima</button>
+            </div>
         </div>
     </div>
 
@@ -224,30 +244,44 @@
             Chart.register(ChartDataLabels);
 
             const initialData = [
-              { "date": "2025-10-01", "amount": 43.00, "category": "Alimentação", "description": "Almoço com Renato" },
-              { "date": "2025-10-01", "amount": 13.00, "category": "Equipamento", "description": "Dois pares de luvas" },
-              { "date": "2025-10-01", "amount": 20.00, "category": "Equipamento", "description": "Dez sacos de entulho" },
-              { "date": "2025-10-02", "amount": 45.00, "category": "Alimentação", "description": "Almoço com Renato" },
-              { "date": "2025-10-02", "amount": 36.71, "category": "Alimentação", "description": "água, copo, sabonete e papel" },
-              { "date": "2025-10-02", "amount": 7.29, "category": "Equipamento", "description": "óculos de proteção" },
-              { "date": "2025-10-02", "amount": 100.00, "category": "Transporte Público", "description": "recarga dos bilhetes" },
-              { "date": "2025-10-04", "amount": 84.90, "category": "Equipamento", "description": "alicate nivelador" },
-              { "date": "2025-10-04", "amount": 19.90, "category": "Equipamento", "description": "colher de pedreiro" },
-              { "date": "2025-10-04", "amount": 31.90, "category": "Equipamento", "description": "desempenadeira" },
-              { "date": "2025-10-04", "amount": 227.48, "category": "Materiais", "description": "Cimento, espaçadores, etc" }
+                {"date":"2025-10-01","amount":43,"category":"Alimentação","description":"Almoço com Renato"},
+                {"date":"2025-10-01","amount":13,"category":"Equipamento","description":"Dois pares de luvas"},
+                {"date":"2025-10-01","amount":20,"category":"Equipamento","description":"Dez sacos de entulho"},
+                {"date":"2025-10-01","amount":11.75,"category":"Transporte por App","description":"99 do mercado mago até a estação"},
+                {"date":"2025-10-02","amount":45,"category":"Alimentação","description":"Almoço com Renato"},
+                {"date":"2025-10-02","amount":36.71,"category":"Alimentação","description":"água, copo, sabonete e papel"},
+                {"date":"2025-10-02","amount":10.5,"category":"Transporte por App","description":"99 do posto suzan até a casa"},
+                {"date":"2025-10-02","amount":7.29,"category":"Equipamento","description":"óculos de proteção"},
+                {"date":"2025-10-02","amount":100,"category":"Transporte Público","description":"recarga dos bilhetes"},
+                {"date":"2025-10-04","amount":84.9,"category":"Equipamento","description":"alicate nivelador"},
+                {"date":"2025-10-04","amount":19.9,"category":"Equipamento","description":"colher de pedreiro"},
+                {"date":"2025-10-04","amount":31.9,"category":"Equipamento","description":"desempenadeira"},
+                {"date":"2025-10-04","amount":2227.48,"category":"Materiais","description":"Cimento, espaçadores, etc"},
+                {"date":"2025-10-05","amount":50,"category":"Combustível","description":"gasolina do Renato"},
+                {"date":"2025-10-05","amount":45,"category":"Alimentação","description":"Almoço com Renato"},
+                {"date":"2025-10-05","amount":1500,"category":"Mão de Obra","description":"Primeira parcela do Renato"},
+                {"date":"2025-10-07","amount":45,"category":"Alimentação","description":"Almoço com Renato"},
+                {"date":"2025-10-07","amount":130,"category":"Equipamento","description":"Ponteiro e talhadeira"},
+                {"date":"2025-10-07","amount":10.5,"category":"Transporte por App","description":"99 da estação até a casa"}
             ];
 
             const dailyReports = [
-                { "date": "2025-10-01", "report": "Remoção de pisos da cozinha" },
-                { "date": "2025-10-02", "report": "Remoção parcial de parede sul da cozinha" },
-                { "date": "2025-10-03", "report": "Pesquisa e orçamento de materiais" },
-                { "date": "2025-10-04", "report": "Compra online de materiais" }
+                {"date":"2025-10-01","report":"Remoção de pisos da cozinha"},
+                {"date":"2025-10-02","report":"Remoção parcial de parede sul da cozinha"},
+                {"date":"2025-10-03","report":"Pesquisa e orçamento de materiais"},
+                {"date":"2025-10-04","report":"Compra online de materiais"},
+                {"date":"2025-10-05","report":"Pagamento da primeira parcela da mão de obra"},
+                {"date":"2025-10-07","report":"Recolhimento e organização de entulho"}
             ];
 
             let expenses = [...initialData];
             let costsChart, percentageChart, periodAnalysisChart;
             let sortColumn = 'date';
             let sortDirection = 'asc';
+            let expensesCurrentPage = 1;
+            const EXPENSES_PER_PAGE = 10;
+            let reportsCurrentPage = 1;
+            const REPORTS_PER_PAGE = 5;
             
             const categoryColors = {
                 "Equipamento": 'rgba(255, 99, 132, 0.8)', "Alimentação": 'rgba(54, 162, 235, 0.8)',
@@ -271,10 +305,10 @@
             const calculateDaysLeft = () => {
                 const startDate = new Date('2025-10-01T00:00:00');
                 const deadline = new Date('2025-12-20T23:59:59');
-                const today = new Date();
+                const today = new Date('2025-10-08T08:39:00'); // Data atual para fins de demonstração
                 const msPerDay = 1000 * 60 * 60 * 24;
                 const totalDays = Math.round((deadline - startDate) / msPerDay);
-                let executedDays = Math.max(0, today >= startDate ? Math.round((today - startDate) / msPerDay) + 1 : 0);
+                let executedDays = Math.max(0, today >= startDate ? Math.floor((today - startDate) / msPerDay) + 1 : 0);
                 if (executedDays > totalDays) executedDays = totalDays;
                 let remainingDays = Math.max(0, today < deadline ? Math.ceil((deadline - today) / msPerDay) : 0);
                 document.getElementById('days-executed').textContent = executedDays;
@@ -311,18 +345,37 @@
             
             const renderDailyReports = () => {
                 const entriesContainer = document.getElementById('daily-report-entries');
-                entriesContainer.innerHTML = ''; 
-                if (dailyReports.length === 0) {
-                    entriesContainer.innerHTML = '<p class="text-center text-gray-500" style="font-family: \'Inter\', sans-serif;">Nenhum relatório diário encontrado.</p>';
-                    return;
+                const pageInfoEl = document.getElementById('reports-page-info');
+                const prevBtn = document.getElementById('reports-prev-btn');
+                const nextBtn = document.getElementById('reports-next-btn');
+                
+                entriesContainer.innerHTML = '';
+                
+                const sortedReports = [...dailyReports].sort((a, b) => new Date(b.date) - new Date(a.date));
+                const totalPages = Math.ceil(sortedReports.length / REPORTS_PER_PAGE);
+                
+                if(totalPages === 0) {
+                     pageInfoEl.textContent = 'Página 0 de 0';
+                     prevBtn.disabled = true;
+                     nextBtn.disabled = true;
+                     entriesContainer.innerHTML = '<p class="text-center text-gray-500" style="font-family: \'Inter\', sans-serif;">Nenhum relatório diário encontrado.</p>';
+                     return;
                 }
-                dailyReports.sort((a, b) => new Date(a.date) - new Date(b.date));
-                dailyReports.forEach(report => {
+
+                const startIndex = (reportsCurrentPage - 1) * REPORTS_PER_PAGE;
+                const endIndex = startIndex + REPORTS_PER_PAGE;
+                const paginatedReports = sortedReports.slice(startIndex, endIndex);
+
+                paginatedReports.forEach(report => {
                     const entryDiv = document.createElement('div');
                     entryDiv.className = 'report-entry';
                     entryDiv.innerHTML = `<p><span class="report-date">${formatDate(report.date)}:</span><span class="report-text">${report.report}</span></p>`;
                     entriesContainer.appendChild(entryDiv);
                 });
+
+                pageInfoEl.textContent = `Página ${reportsCurrentPage} de ${totalPages}`;
+                prevBtn.disabled = reportsCurrentPage === 1;
+                nextBtn.disabled = reportsCurrentPage === totalPages;
             };
 
             const updateSortIndicators = () => {
@@ -358,7 +411,7 @@
                 
                 const insightsEl = document.getElementById('period-insights');
                 insightsEl.innerHTML = `
-                    <div class="insight-item border-red-500 bg-red-50"><strong>Maior Gasto:</strong> ${formatCurrency(highestExpense.amount)} em "${highestExpense.description}"</div>
+                    <div class="insight-item border-red-500 bg-red-50"><strong>Maior Gasto:</strong> ${highestExpense.amount > 0 ? `${formatCurrency(highestExpense.amount)} em "${highestExpense.description}"` : 'N/A'}</div>
                     ${topCategory ? `<div class="insight-item border-purple-500 bg-purple-50"><strong>Categoria Principal:</strong> ${topCategory[0]} com ${formatCurrency(topCategory[1])}</div>` : ''}
                     ${recurringExpenses.length > 0 ? `<div class="insight-item border-yellow-500 bg-yellow-50"><strong>Gastos Repetidos:</strong> ${recurringExpenses.map(([desc, count]) => `${desc} (${count}x)`).join(', ')}</div>` : '<div class="insight-item border-gray-400 bg-gray-50">Nenhum gasto repetido identificado no período.</div>'}
                 `;
@@ -376,27 +429,8 @@
 
                 periodAnalysisChart = new Chart(periodCtx, {
                     type: 'bar',
-                    data: {
-                        labels: sortedLabels,
-                        datasets: [{ label: 'Gasto Diário', data: sortedData, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        plugins: { 
-                            legend: { display: false }, 
-                            datalabels: { 
-                                anchor: 'end',
-                                align: 'end',
-                                formatter: (value) => formatCurrency(value),
-                                color: '#4b5563',
-                                font: {
-                                    size: 10
-                                }
-                             } 
-                        }, 
-                        scales: { y: { beginAtZero: true, ticks: { callback: (value) => formatCurrency(value) } } } 
-                    }
+                    data: { labels: sortedLabels, datasets: [{ label: 'Gasto Diário', data: sortedData, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, datalabels: { anchor: 'end', align: 'end', formatter: (value) => formatCurrency(value), color: '#4b5563', font: { size: 10 } } }, scales: { y: { beginAtZero: true, ticks: { callback: (value) => formatCurrency(value) } } } }
                 });
             };
 
@@ -405,11 +439,10 @@
                 const endDate = document.getElementById('filter-date-end').value;
                 const categoryFilter = document.getElementById('filter-category').value.toLowerCase();
 
-                const filteredExpenses = expenses.filter(exp => {
+                let filteredExpenses = expenses.filter(exp => {
                     const expDate = new Date(exp.date + 'T00:00:00');
                     if (startDate && new Date(startDate + 'T00:00:00') > expDate) return false;
                     if (endDate && new Date(endDate + 'T00:00:00') < expDate) return false;
-
                     return exp.category.toLowerCase().includes(categoryFilter);
                 });
 
@@ -417,39 +450,78 @@
                     let valA = a[sortColumn], valB = b[sortColumn];
                     if (sortColumn === 'date') { valA = new Date(valA); valB = new Date(valB); }
                     if (valA < valB) return sortDirection === 'asc' ? -1 : 1;
-                    if (valA > valB) return sortDirection === 'asc' ? 1 : ' -1';
+                    if (valA > valB) return sortDirection === 'asc' ? 1 : -1;
                     return 0;
                 });
                 
                 const expenseListEl = document.getElementById('expense-list');
-                const noExpensesRow = document.getElementById('no-expenses-row');
+                const pageInfoEl = document.getElementById('expenses-page-info');
+                const prevBtn = document.getElementById('expenses-prev-btn');
+                const nextBtn = document.getElementById('expenses-next-btn');
+
                 expenseListEl.innerHTML = '';
-                if (filteredExpenses.length === 0) {
-                    expenseListEl.appendChild(noExpensesRow);
+                const totalPages = Math.ceil(filteredExpenses.length / EXPENSES_PER_PAGE);
+
+                if (totalPages === 0) {
+                     pageInfoEl.textContent = 'Página 0 de 0';
+                     prevBtn.disabled = true;
+                     nextBtn.disabled = true;
+                     expenseListEl.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Nenhuma despesa encontrada.</td></tr>';
                 } else {
-                    filteredExpenses.forEach(exp => {
+                    const startIndex = (expensesCurrentPage - 1) * EXPENSES_PER_PAGE;
+                    const endIndex = startIndex + EXPENSES_PER_PAGE;
+                    const paginatedExpenses = filteredExpenses.slice(startIndex, endIndex);
+
+                    paginatedExpenses.forEach(exp => {
                         const row = document.createElement('tr');
                         row.innerHTML = `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(exp.date)}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${exp.description}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${exp.category}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">${formatCurrency(exp.amount)}</td>`;
                         expenseListEl.appendChild(row);
                     });
+                    
+                    pageInfoEl.textContent = `Página ${expensesCurrentPage} de ${totalPages}`;
+                    prevBtn.disabled = expensesCurrentPage === 1;
+                    nextBtn.disabled = expensesCurrentPage === totalPages;
                 }
                 
                 updateSortIndicators();
                 updatePeriodAnalysis(filteredExpenses);
             };
             
+            // Event Listeners
             document.querySelectorAll('th[data-sort]').forEach(header => {
                 header.addEventListener('click', () => {
                     const newSortColumn = header.dataset.sort;
                     sortDirection = (sortColumn === newSortColumn && sortDirection === 'asc') ? 'desc' : 'asc';
                     sortColumn = newSortColumn;
+                    expensesCurrentPage = 1;
                     updateDashboard();
                 });
             });
 
-            document.getElementById('filter-date-start').addEventListener('change', updateDashboard);
-            document.getElementById('filter-date-end').addEventListener('change', updateDashboard);
-            document.getElementById('filter-category').addEventListener('change', updateDashboard);
+            const handleFilterChange = () => {
+                expensesCurrentPage = 1;
+                updateDashboard();
+            };
+
+            document.getElementById('filter-date-start').addEventListener('change', handleFilterChange);
+            document.getElementById('filter-date-end').addEventListener('change', handleFilterChange);
+            document.getElementById('filter-category').addEventListener('change', handleFilterChange);
+            
+            document.getElementById('expenses-prev-btn').addEventListener('click', () => {
+                if (expensesCurrentPage > 1) { expensesCurrentPage--; updateDashboard(); }
+            });
+            document.getElementById('expenses-next-btn').addEventListener('click', () => {
+                const totalPages = Math.ceil(expenses.length / EXPENSES_PER_PAGE);
+                if (expensesCurrentPage < totalPages) { expensesCurrentPage++; updateDashboard(); }
+            });
+
+            document.getElementById('reports-prev-btn').addEventListener('click', () => {
+                if (reportsCurrentPage > 1) { reportsCurrentPage--; renderDailyReports(); }
+            });
+             document.getElementById('reports-next-btn').addEventListener('click', () => {
+                const totalPages = Math.ceil(dailyReports.length / REPORTS_PER_PAGE);
+                if (reportsCurrentPage < totalPages) { reportsCurrentPage++; renderDailyReports(); }
+            });
             
             // Inicialização
             calculateDaysLeft();
@@ -457,7 +529,6 @@
             renderOverallCharts();
             renderDailyReports();
             updateDashboard();
-            setInterval(calculateDaysLeft, 60000);
         });
     </script>
 </body>

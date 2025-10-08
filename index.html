@@ -247,10 +247,10 @@
                 {"date":"2025-10-01","amount":43,"category":"Alimentação","description":"Almoço com Renato"},
                 {"date":"2025-10-01","amount":13,"category":"Equipamento","description":"Dois pares de luvas"},
                 {"date":"2025-10-01","amount":20,"category":"Equipamento","description":"Dez sacos de entulho"},
-                {"date":"2025-10-01","amount":11.75,"category":"Transporte por App","description":"99 do mercado mago até a estação"},
+                {"date":"2025-10-01","amount":11.75,"category":"Transporte app","description":"99 do mercado mago até a estação"},
                 {"date":"2025-10-02","amount":45,"category":"Alimentação","description":"Almoço com Renato"},
                 {"date":"2025-10-02","amount":36.71,"category":"Alimentação","description":"água, copo, sabonete e papel"},
-                {"date":"2025-10-02","amount":10.5,"category":"Transporte por App","description":"99 do posto suzan até a casa"},
+                {"date":"2025-10-02","amount":10.5,"category":"Transporte app","description":"99 do posto suzan até a casa"},
                 {"date":"2025-10-02","amount":7.29,"category":"Equipamento","description":"óculos de proteção"},
                 {"date":"2025-10-02","amount":100,"category":"Transporte Público","description":"recarga dos bilhetes"},
                 {"date":"2025-10-04","amount":84.9,"category":"Equipamento","description":"alicate nivelador"},
@@ -258,11 +258,9 @@
                 {"date":"2025-10-04","amount":31.9,"category":"Equipamento","description":"desempenadeira"},
                 {"date":"2025-10-04","amount":2227.48,"category":"Materiais","description":"Cimento, espaçadores, etc"},
                 {"date":"2025-10-05","amount":50,"category":"Combustível","description":"gasolina do Renato"},
-                {"date":"2025-10-05","amount":45,"category":"Alimentação","description":"Almoço com Renato"},
-                {"date":"2025-10-05","amount":1500,"category":"Mão de Obra","description":"Primeira parcela do Renato"},
                 {"date":"2025-10-07","amount":45,"category":"Alimentação","description":"Almoço com Renato"},
                 {"date":"2025-10-07","amount":130,"category":"Equipamento","description":"Ponteiro e talhadeira"},
-                {"date":"2025-10-07","amount":10.5,"category":"Transporte por App","description":"99 da estação até a casa"}
+                {"date":"2025-10-07","amount":10.5,"category":"Transporte app","description":"99 da estação até a casa"}
             ];
 
             const dailyReports = [
@@ -270,7 +268,6 @@
                 {"date":"2025-10-02","report":"Remoção parcial de parede sul da cozinha"},
                 {"date":"2025-10-03","report":"Pesquisa e orçamento de materiais"},
                 {"date":"2025-10-04","report":"Compra online de materiais"},
-                {"date":"2025-10-05","report":"Pagamento da primeira parcela da mão de obra"},
                 {"date":"2025-10-07","report":"Recolhimento e organização de entulho"}
             ];
 
@@ -286,7 +283,7 @@
             const categoryColors = {
                 "Equipamento": 'rgba(255, 99, 132, 0.8)', "Alimentação": 'rgba(54, 162, 235, 0.8)',
                 "Combustível": 'rgba(255, 206, 86, 0.8)', "Transporte Público": 'rgba(75, 192, 192, 0.8)',
-                "Transporte por App": 'rgba(153, 102, 255, 0.8)', "Materiais": 'rgba(255, 159, 64, 0.8)',
+                "Transporte app": 'rgba(153, 102, 255, 0.8)', "Materiais": 'rgba(255, 159, 64, 0.8)',
                 "Mão de Obra": 'rgba(199, 199, 199, 0.8)', "Outros": 'rgba(83, 102, 84, 0.8)'
             };
 
@@ -305,7 +302,7 @@
             const calculateDaysLeft = () => {
                 const startDate = new Date('2025-10-01T00:00:00');
                 const deadline = new Date('2025-12-20T23:59:59');
-                const today = new Date('2025-10-08T08:39:00'); // Data atual para fins de demonstração
+                const today = new Date(); 
                 const msPerDay = 1000 * 60 * 60 * 24;
                 const totalDays = Math.round((deadline - startDate) / msPerDay);
                 let executedDays = Math.max(0, today >= startDate ? Math.floor((today - startDate) / msPerDay) + 1 : 0);
@@ -468,6 +465,7 @@
                      nextBtn.disabled = true;
                      expenseListEl.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Nenhuma despesa encontrada.</td></tr>';
                 } else {
+                    if (expensesCurrentPage > totalPages) expensesCurrentPage = totalPages;
                     const startIndex = (expensesCurrentPage - 1) * EXPENSES_PER_PAGE;
                     const endIndex = startIndex + EXPENSES_PER_PAGE;
                     const paginatedExpenses = filteredExpenses.slice(startIndex, endIndex);
@@ -511,7 +509,16 @@
                 if (expensesCurrentPage > 1) { expensesCurrentPage--; updateDashboard(); }
             });
             document.getElementById('expenses-next-btn').addEventListener('click', () => {
-                const totalPages = Math.ceil(expenses.length / EXPENSES_PER_PAGE);
+                const totalFiltered = expenses.filter(exp => {
+                    const startDate = document.getElementById('filter-date-start').value;
+                    const endDate = document.getElementById('filter-date-end').value;
+                    const categoryFilter = document.getElementById('filter-category').value.toLowerCase();
+                    const expDate = new Date(exp.date + 'T00:00:00');
+                    if (startDate && new Date(startDate + 'T00:00:00') > expDate) return false;
+                    if (endDate && new Date(endDate + 'T00:00:00') < expDate) return false;
+                    return exp.category.toLowerCase().includes(categoryFilter);
+                }).length;
+                const totalPages = Math.ceil(totalFiltered / EXPENSES_PER_PAGE);
                 if (expensesCurrentPage < totalPages) { expensesCurrentPage++; updateDashboard(); }
             });
 
@@ -529,6 +536,7 @@
             renderOverallCharts();
             renderDailyReports();
             updateDashboard();
+            setInterval(calculateDaysLeft, 60 * 1000);
         });
     </script>
 </body>
